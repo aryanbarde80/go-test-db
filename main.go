@@ -16,17 +16,29 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// Product struct for MongoDB
 type Product struct {
 	Name     string  `json:"name" bson:"name"`
 	Quantity int     `json:"quantity" bson:"quantity"`
 	Price    float64 `json:"price" bson:"price"`
 }
 
+// MySQLProduct struct for MySQL
 type MySQLProduct struct {
 	ID       int
 	Name     string
 	Quantity int
 	Price    float64
+}
+
+// PageData struct for template
+type PageData struct {
+	MySQLStatus    string
+	MySQLData      []MySQLProduct
+	MongoStatus    string
+	MongoData      []Product
+	MySQLConnected bool
+	MongoConnected bool
 }
 
 var (
@@ -54,6 +66,7 @@ func main() {
 	}
 }
 
+// ============ MySQL Initialization ============
 func initMySQL() {
 	var err error
 	dsn := "appuser:password123@tcp(localhost:3306)/inventory_db?charset=utf8mb4&parseTime=True&loc=Local"
@@ -76,6 +89,7 @@ func initMySQL() {
 
 	log.Println("✅ MySQL Connected Successfully!")
 
+	// Create table if not exists
 	createTableSQL := `
 	CREATE TABLE IF NOT EXISTS products (
 		id INT AUTO_INCREMENT PRIMARY KEY,
@@ -89,6 +103,7 @@ func initMySQL() {
 		return
 	}
 
+	// Insert sample data if table is empty
 	var count int
 	mysqlDB.QueryRow("SELECT COUNT(*) FROM products").Scan(&count)
 	if count == 0 {
@@ -107,6 +122,7 @@ func initMySQL() {
 	}
 }
 
+// ============ MongoDB Initialization ============
 func initMongoDB() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -126,8 +142,10 @@ func initMongoDB() {
 	mongoDB = client.Database("inventory_db")
 	log.Println("✅ MongoDB Connected Successfully!")
 
+	// Create collection and insert sample data
 	collection := mongoDB.Collection("products")
 
+	// Check if collection is empty
 	count, err := collection.CountDocuments(ctx, bson.M{})
 	if err != nil {
 		log.Printf("⚠️ MongoDB Count Error: %v", err)
@@ -151,7 +169,11 @@ func initMongoDB() {
 	}
 }
 
+// ============ Handlers ============
+
+// Home Handler - Shows UI
 func homeHandler(w http.ResponseWriter, r *http.Request) {
+	// Get MySQL Data
 	mysqlStatus := "❌ Not Connected"
 	mysqlProducts := []MySQLProduct{}
 
@@ -172,6 +194,7 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Get MongoDB Data
 	mongoStatus := "❌ Not Connected"
 	mongoProducts := []Product{}
 
@@ -193,27 +216,33 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	data := struct {
-		MySQLStatus string
-		MySQLData   []MySQLProduct
-		MongoStatus string
-		MongoData   []Product
-	}{
-		MySQLStatus: mysqlStatus,
-		MySQLData:   mysqlProducts,
-		MongoStatus: mongoStatus,
-		MongoData:   mongoProducts,
+	// Prepare data for template
+	data := PageData{
+		MySQLStatus:    mysqlStatus,
+		MySQLData:      mysqlProducts,
+		MongoStatus:    mongoStatus,
+		MongoData:      mongoProducts,
+		MySQLConnected: mysqlStatus == "✅ Connected",
+		MongoConnected: mongoStatus == "✅ Connected",
 	}
 
+	// Parse and execute template
 	tmpl, err := template.ParseFiles("templates/index.html")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("⚠️ Template parsing error: %v", err)
+		http.Error(w, "Template not found", http.StatusInternalServerError)
 		return
 	}
 
-	tmpl.Execute(w, data)
+	err = tmpl.Execute(w, data)
+	if err != nil {
+		log.Printf("⚠️ Template execution error: %v", err)
+		http.Error(w, "Template execution failed", http.StatusInternalServerError)
+		return
+	}
 }
 
+// Status Handler - JSON Response
 func statusHandler(w http.ResponseWriter, r *http.Request) {
 	mysqlStatus := "❌ Not Connected"
 	mongoStatus := "❌ Not Connected"
@@ -233,7 +262,7 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := map[string]string{
-		"mysql":  mysqlStatus,
+		"mysql":   mysqlStatus,
 		"mongodb": mongoStatus,
 	}
 
