@@ -3,15 +3,23 @@ FROM ubuntu:22.04
 # Set non-interactive mode
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install MySQL, MongoDB, Golang, and Supervisor
+# Install MySQL, Golang, Supervisor, and Dependencies
 RUN apt-get update && apt-get install -y \
     mysql-server \
-    mongodb \
     golang-go \
     supervisor \
     git \
     curl \
+    wget \
+    gnupg \
     && rm -rf /var/lib/apt/lists/*
+
+# Install MongoDB from official repo (Ubuntu 22.04 compatible)
+RUN wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | apt-key add - && \
+    echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | tee /etc/apt/sources.list.d/mongodb-org-7.0.list && \
+    apt-get update && \
+    apt-get install -y mongodb-org && \
+    rm -rf /var/lib/apt/lists/*
 
 # Create app directory
 WORKDIR /app
@@ -37,7 +45,7 @@ RUN service mysql start && \
 # Configure MongoDB
 RUN mkdir -p /data/db && chown -R mongodb:mongodb /data/db
 
-# Supervisord config to run MySQL, MongoDB, and Go app
+# Supervisord config
 RUN echo '[supervisord]' > /etc/supervisor/conf.d/app.conf && \
     echo 'nodaemon=true' >> /etc/supervisor/conf.d/app.conf && \
     echo '' >> /etc/supervisor/conf.d/app.conf && \
