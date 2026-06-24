@@ -17,14 +17,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// Product struct for MongoDB
 type Product struct {
 	Name     string  `json:"name" bson:"name"`
 	Quantity int     `json:"quantity" bson:"quantity"`
 	Price    float64 `json:"price" bson:"price"`
 }
 
-// MySQL Product struct
 type MySQLProduct struct {
 	ID       int
 	Name     string
@@ -38,26 +36,25 @@ var (
 )
 
 func main() {
-	// Initialize MySQL
+	log.Println("🚀 Starting application...")
+
+	log.Println("📦 Initializing MySQL...")
 	initMySQL()
 
-	// Initialize MongoDB
+	log.Println("🍃 Initializing MongoDB...")
 	initMongoDB()
 
-	// Setup Router
 	r := mux.NewRouter()
-
-	// Routes
 	r.HandleFunc("/", homeHandler)
 	r.HandleFunc("/status", statusHandler)
 
-	// Start Server
 	port := ":5000"
-	fmt.Printf("🚀 Server starting on http://localhost%s\n", port)
-	log.Fatal(http.ListenAndServe(port, r))
+	log.Printf("🚀 Server starting on http://0.0.0.0%s\n", port)
+	if err := http.ListenAndServe("0.0.0.0:5000", r); err != nil {
+		log.Fatalf("❌ Server failed: %v", err)
+	}
 }
 
-// ============ MySQL Initialization ============
 func initMySQL() {
 	var err error
 	dsn := "appuser:password123@tcp(localhost:3306)/inventory_db?charset=utf8mb4&parseTime=True&loc=Local"
@@ -78,9 +75,8 @@ func initMySQL() {
 		return
 	}
 
-	fmt.Println("✅ MySQL Connected Successfully!")
+	log.Println("✅ MySQL Connected Successfully!")
 
-	// Create table if not exists
 	createTableSQL := `
 	CREATE TABLE IF NOT EXISTS products (
 		id INT AUTO_INCREMENT PRIMARY KEY,
@@ -94,7 +90,6 @@ func initMySQL() {
 		return
 	}
 
-	// Insert sample data if table is empty
 	var count int
 	mysqlDB.QueryRow("SELECT COUNT(*) FROM products").Scan(&count)
 	if count == 0 {
@@ -108,12 +103,11 @@ func initMySQL() {
 		if err != nil {
 			log.Printf("⚠️ MySQL Sample Data Insert Error: %v", err)
 		} else {
-			fmt.Println("✅ MySQL Sample Data Inserted!")
+			log.Println("✅ MySQL Sample Data Inserted!")
 		}
 	}
 }
 
-// ============ MongoDB Initialization ============
 func initMongoDB() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -131,12 +125,10 @@ func initMongoDB() {
 	}
 
 	mongoDB = client.Database("inventory_db")
-	fmt.Println("✅ MongoDB Connected Successfully!")
+	log.Println("✅ MongoDB Connected Successfully!")
 
-	// Create collection and insert sample data
 	collection := mongoDB.Collection("products")
 
-	// Check if collection is empty
 	count, err := collection.CountDocuments(ctx, bson.M{})
 	if err != nil {
 		log.Printf("⚠️ MongoDB Count Error: %v", err)
@@ -155,16 +147,12 @@ func initMongoDB() {
 		if err != nil {
 			log.Printf("⚠️ MongoDB Sample Data Insert Error: %v", err)
 		} else {
-			fmt.Println("✅ MongoDB Sample Data Inserted!")
+			log.Println("✅ MongoDB Sample Data Inserted!")
 		}
 	}
 }
 
-// ============ Handlers ============
-
-// Home Handler - Shows UI
 func homeHandler(w http.ResponseWriter, r *http.Request) {
-	// Get MySQL Data
 	mysqlStatus := "❌ Not Connected"
 	mysqlProducts := []MySQLProduct{}
 
@@ -185,7 +173,6 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Get MongoDB Data
 	mongoStatus := "❌ Not Connected"
 	mongoProducts := []Product{}
 
@@ -208,15 +195,15 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		MySQLStatus  string
-		MySQLData    []MySQLProduct
-		MongoStatus  string
-		MongoData    []Product
+		MySQLStatus string
+		MySQLData   []MySQLProduct
+		MongoStatus string
+		MongoData   []Product
 	}{
-		MySQLStatus:  mysqlStatus,
-		MySQLData:    mysqlProducts,
-		MongoStatus:  mongoStatus,
-		MongoData:    mongoProducts,
+		MySQLStatus: mysqlStatus,
+		MySQLData:   mysqlProducts,
+		MongoStatus: mongoStatus,
+		MongoData:   mongoProducts,
 	}
 
 	tmpl, err := template.ParseFiles("templates/index.html")
@@ -228,7 +215,6 @@ func homeHandler(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, data)
 }
 
-// Status Handler - JSON Response
 func statusHandler(w http.ResponseWriter, r *http.Request) {
 	mysqlStatus := "❌ Not Connected"
 	mongoStatus := "❌ Not Connected"
