@@ -1,162 +1,29 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Inventory App - Golang</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-            max-width: 900px;
-            margin: 40px auto;
-            padding: 20px;
-            background: #f5f7fa;
-        }
-        h1 {
-            color: #1a202c;
-            font-size: 28px;
-            border-bottom: 3px solid #4299e1;
-            padding-bottom: 10px;
-        }
-        .subtitle {
-            color: #4a5568;
-            margin: 10px 0 30px 0;
-            font-size: 14px;
-        }
-        .status-card {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 20px 0;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-        }
-        .status-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 15px;
-        }
-        .status-header h2 {
-            font-size: 20px;
-            color: #2d3748;
-        }
-        .badge {
-            display: inline-block;
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 13px;
-            font-weight: 600;
-        }
-        .badge-success {
-            background: #48bb78;
-            color: white;
-        }
-        .badge-danger {
-            background: #fc8181;
-            color: white;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
-        th, td {
-            padding: 10px 12px;
-            text-align: left;
-            border-bottom: 1px solid #e2e8f0;
-        }
-        th {
-            background: #edf2f7;
-            font-weight: 600;
-            color: #2d3748;
-        }
-        tr:hover {
-            background: #f7fafc;
-        }
-        .no-data {
-            color: #718096;
-            font-style: italic;
-            padding: 10px 0;
-        }
-        .footer {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 2px solid #e2e8f0;
-            color: #718096;
-            font-size: 13px;
-            text-align: center;
-        }
-        .golang-badge {
-            background: #00add8;
-            color: white;
-            padding: 4px 12px;
-            border-radius: 4px;
-            font-size: 12px;
-            font-weight: bold;
-        }
-    </style>
-</head>
-<body>
-    <h1>📦 Inventory Management</h1>
-    <p class="subtitle">
-        <span class="golang-badge">GO</span> Running on Render with MySQL + MongoDB locally
-    </p>
+type PageData struct {
+    MySQLStatus    string
+    MySQLData      []MySQLProduct
+    MongoStatus    string
+    MongoData      []Product
+    MySQLConnected bool
+    MongoConnected bool
+}
 
-    <!-- MySQL Status -->
-    <div class="status-card">
-        <div class="status-header">
-            <h2>🛢️ MySQL</h2>
-            <span class="badge {{if .MySQLStatus}} {{if contains .MySQLStatus "Connected"}}badge-success{{else}}badge-danger{{end}} {{end}}">{{.MySQLStatus}}</span>
-        </div>
-        {{if .MySQLData}}
-        <table>
-            <tr>
-                <th>ID</th>
-                <th>Product</th>
-                <th>Quantity</th>
-                <th>Price</th>
-            </tr>
-            {{range .MySQLData}}
-            <tr>
-                <td>{{.ID}}</td>
-                <td>{{.Name}}</td>
-                <td>{{.Quantity}}</td>
-                <td>₹{{.Price}}</td>
-            </tr>
-            {{end}}
-        </table>
-        {{else}}
-        <p class="no-data">No data found or MySQL not connected.</p>
-        {{end}}
-    </div>
+func homeHandler(w http.ResponseWriter, r *http.Request) {
+    // ... existing code to fetch data ...
 
-    <!-- MongoDB Status -->
-    <div class="status-card">
-        <div class="status-header">
-            <h2>🍃 MongoDB</h2>
-            <span class="badge {{if .MongoStatus}} {{if contains .MongoStatus "Connected"}}badge-success{{else}}badge-danger{{end}} {{end}}">{{.MongoStatus}}</span>
-        </div>
-        {{if .MongoData}}
-        <table>
-            <tr>
-                <th>Product</th>
-                <th>Quantity</th>
-                <th>Price</th>
-            </tr>
-            {{range .MongoData}}
-            <tr>
-                <td>{{.Name}}</td>
-                <td>{{.Quantity}}</td>
-                <td>₹{{.Price}}</td>
-            </tr>
-            {{end}}
-        </table>
-        {{else}}
-        <p class="no-data">No data found or MongoDB not connected.</p>
-        {{end}}
-    </div>
+    data := PageData{
+        MySQLStatus:    mysqlStatus,
+        MySQLData:      mysqlProducts,
+        MongoStatus:    mongoStatus,
+        MongoData:      mongoProducts,
+        MySQLConnected: mysqlStatus == "✅ Connected",
+        MongoConnected: mongoStatus == "✅ Connected",
+    }
 
-    <div class="footer">
-        ✅ Both databases running inside container • 🚀 Deployed on Render
-    </div>
-</body>
-</html>
+    tmpl, err := template.ParseFiles("templates/index.html")
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    tmpl.Execute(w, data)
+}
