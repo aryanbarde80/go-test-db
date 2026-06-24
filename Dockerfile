@@ -24,12 +24,20 @@ RUN wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | apt-key add -
 # Create app directory
 WORKDIR /app
 
-# Copy go.mod and go.sum first for better caching
-COPY go.mod go.sum ./
+# Copy go.mod first
+COPY go.mod ./
+
+# Download dependencies (this will create go.sum)
 RUN go mod download
+
+# Copy go.sum after download (or copy both and sync)
+COPY go.mod go.sum ./
 
 # Copy source code
 COPY . /app/
+
+# Tidy and verify dependencies
+RUN go mod tidy
 
 # Build Go app
 RUN go build -o inventory-app main.go
